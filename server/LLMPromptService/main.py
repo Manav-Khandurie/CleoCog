@@ -1,18 +1,26 @@
-# app/main.py
 import os
 from typing import Optional
-from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from mangum import Mangum
 
 # LLM imports
 from langchain_openai import ChatOpenAI  # Reusing OpenAI-compatible client
-from langchain_community.llms import OpenAI
 from langchain_community.chat_models import ChatOpenAI, ChatAnthropic
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-load_dotenv()  # Loads variables from .env file
+if "AWS_LAMBDA_FUNCTION_NAME" not in os.environ:
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()
+    except ImportError:
+        pass  # Ignore if dotenv is not installed in Lambda
+
+
+def get_env_var(name: str, default: Optional[str] = None) -> str:
+    """Retrieve environment variables safely for both local and AWS Lambda environments."""
+    return os.environ.get(name, default)
+
 class LLMRequest(BaseModel):
     prompt: str
     temperature: Optional[float] = 0.7
@@ -25,37 +33,37 @@ app = FastAPI()
 handler = Mangum(app)
 
 def get_llm():
-    llm_provider = os.getenv("LLM_PROVIDER", "openai").lower()
+    llm_provider = get_env_var("LLM_PROVIDER", "openai").lower()
     
     if llm_provider == "openai":
         return ChatOpenAI(
-            model=os.getenv("OPENAI_MODEL", "gpt-3.5-turbo"),
+            model=get_env_var("OPENAI_MODEL", "gpt-3.5-turbo"),
             temperature=0.7,
             max_tokens=500
         )
     elif llm_provider == "anthropic":
         return ChatAnthropic(
-            model=os.getenv("ANTHROPIC_MODEL", "claude-2"),
+            model=get_env_var("ANTHROPIC_MODEL", "claude-2"),
             temperature=0.7,
             max_tokens=500
         )
     elif llm_provider == "google":
         return ChatGoogleGenerativeAI(
-            model=os.getenv("GOOGLE_MODEL", "gemini-pro"),
+            model=get_env_var("GOOGLE_MODEL", "gemini-pro"),
             temperature=0.7
         )
     elif llm_provider == "bedrock":
         return Bedrock(
-            model_id=os.getenv("BEDROCK_MODEL", "anthropic.claude-v2"),
-            region_name=os.getenv("AWS_REGION", "us-west-2"),
+            model_id=get_env_var("BEDROCK_MODEL", "anthropic.claude-v2"),
+            region_name=get_env_var("AWS_REGION", "us-west-2"),
             temperature=0.7,
             max_tokens_to_sample=500
         )
     elif llm_provider == "deepseek":
         return ChatOpenAI(
-            model=os.getenv("DEEPSEEK_MODEL", "deepseek-chat"),
-            openai_api_base=os.getenv("DEEPSEEK_API_BASE", "https://api.deepseek.com/v1"),
-            openai_api_key=os.getenv("DEEPSEEK_API_KEY"),
+            model=get_env_var("DEEPSEEK_MODEL", "deepseek-chat"),
+            openai_api_base=get_env_var("DEEPSEEK_API_BASE", "https://api.deepseek.com/v1"),
+            openai_api_key=get_env_var("DEEPSEEK_API_KEY"),
             temperature=0.7,
             max_tokens=500
         )
@@ -74,3 +82,22 @@ async def generate_text(request: LLMRequest):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+
+# import json
+# import uuid
+# import boto3
+
+# def lambda_handler(event, context):
+#     try:
+#         uuid_value = str(uuid.uuid4())
+
+#         return {
+#             'statusCode': 200,
+#             'body': json.dumps({'message': 'Data saved successfully' , 'uuid': uuid_value})
+#         }
+#     except Exception as e:
+#         return {
+#             'statusCode': 500,
+#             'body': json.dumps({'message': f'Error saving data to DynamoDB: {str(e)}'})
+#         }

@@ -1,3 +1,13 @@
+*.zip
+*.rar
+dependencies/
+*.tar.gz
+langcahin-layer/
+ExtractorService.zip
+*.tar
+
+
+
 *.swp
 package-lock.json
 __pycache__

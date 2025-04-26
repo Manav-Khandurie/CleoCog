@@ -2,3 +2,9 @@ boto3
 python-pptx
 PyPDF2
 youtube-transcript-api
+fastapi
+uvicorn
+pydantic
+python-multipart
+nltk
+beautifulsoup4

@@ -45,6 +45,58 @@ def get_s3_uris(session_id: str) -> list:
             uris.append(f"s3://{bucket_name}/{key}")
     return uris
 
+def calculate_k_from_chunks(
+    total_chunks: int, 
+    default_k: int = 5, 
+    max_k: int = 10, 
+    percentage: float = 0.2
+) -> int:
+    """
+    Dynamically calculate how many chunks to retrieve, based on available chunks.
+
+    Args:
+    - chunk_list (list): List of chunks (retrieved from DB or candidate set).
+    - default_k (int): Default number of chunks.
+    - max_k (int): Maximum number of chunks.
+    - percentage (float): Percentage of available chunks to retrieve.
+
+    Returns:
+    - int: number of chunks to retrieve.
+    """
+
+    if total_chunks == 0:
+        return 0  # Nothing to retrieve
+    
+    percentage_k = int(total_chunks * percentage)
+    k = max(default_k, percentage_k)
+    k = min(k, max_k)
+    k = min(k, total_chunks)  # never more than available chunks
+    return k
+
+
+def get_k(session_id: str, tag: str) -> int:
+    try:
+        # Make the GET request to fetch the value of k
+        response = requests.get(f"{DB_SERVICE_URL}/totalChunks", params={ "session_id": session_id, "tag": tag })
+        response.raise_for_status()  # Raise an exception for HTTP errors
+
+        data = response.json()
+        logger.info(f"Response from DBService for K: {data}")
+        total_chunks = data.get("total", 5)  # Default to 5 if the key is not present
+        k=  calculate_k_from_chunks(total_chunks)
+        logger.info(f"Calculated K: {k} based on total chunks: {total_chunks}") 
+        # Ensure k is a positive integer
+        if not isinstance(k, int) or k <= 0:
+            logger.warning(f"Invalid value for K: {k}. Defaulting to 5.")
+            k = 5
+        
+        return k
+    except (requests.RequestException, ValueError) as e:
+        # Catch errors related to the HTTP request or invalid JSON parsing
+        logger.error(f"Error in get_k: {e}")
+        return 5
+
+    
 # ----------------- API Endpoints -----------------
 @app.get("/")
 async def root():
@@ -55,11 +107,14 @@ async def query(request: Request):
     query_text = request.query_params.get("query")
     if not query_text:
         raise HTTPException(status_code=400, detail="Query parameter 'query' is required.")
+    session_id = request.query_params.get("session_id", "")
+    tag = request.query_params.get("tag", "")
+    top_k= get_k(session_id, tag)
     payload = {
         "query": query_text,
-        "tag": request.query_params.get("tag", ""),  # Optional
-        "session_id": request.query_params.get("session_id", ""),  # Optional
-        "top_k": int(request.query_params.get("top_k", 5))
+        "tag": tag,
+        "session_id": session_id,
+        "top_k": top_k
     }
 
     try:
@@ -76,12 +131,15 @@ async def combined_query(request: Request):
     query_text = request.query_params.get("query")
     if not query_text:
         raise HTTPException(status_code=400, detail="Query parameter 'query' is required.")
-
+    session_id = request.query_params.get("session_id", "")
+    tag = request.query_params.get("tag", "")
+    top_k= get_k(session_id, tag)
+    logger.info(f"Top K: {top_k}") 
     db_payload = {
         "query": query_text,
-        "tag": request.query_params.get("tag", ""),  # Optional
-        "session_id": request.query_params.get("session_id", ""),  # Optional
-        "top_k": int(request.query_params.get("top_k", 5))
+        "tag": tag,
+        "session_id": session_id,
+        "top_k": top_k
     }
 
     try:
@@ -95,11 +153,13 @@ async def combined_query(request: Request):
         # Step 2: Extract relevant content
         logger.info("Extracting content from DB response")
         extracted_texts = []
-        prompt_text = []
         logger.info("-------------------------------------------------")
         logger.info("-------------------------------------------------")
         logger.info("-------------------------------------------------")
         logger.info(f"DB response: {db_data}")
+        logger.info("-------------------------------------------------")
+        logger.info("-------------------------------------------------")
+        logger.info("-------------------------------------------------")
         for result in db_data.get('results', []):
             content = result.get('content', '').strip()
             if content:  # Make sure there's actual content
@@ -117,10 +177,13 @@ async def combined_query(request: Request):
         {context_text}
 
         Please answer the user's query based on the information above. Be concise and clear.
+        Ensure that you response is relevant to the text provided and does not include any unrelated information.
+        If the information is not sufficient to answer the question, please indicate that.
+        And only give response in text fromat no other formata and no highlights,bolds etc.
         """
 
         logger.info(f"Combined prompt text prepared with {len(extracted_texts)} pieces")
-        logger.info(f"Combined prompt: {combined_prompt[:100]}...")  # Log only first 100 chars
+        logger.info(f"Combined prompt: {combined_prompt[:500]}...")  # Log only first 100 chars
 
         # Step 3: Call LLM Prompt Service
         prompt_payload = {
@@ -176,8 +239,12 @@ def store_documents(request: StoreRequest):
         }
         if request.yt_list:
             payload_to_extractor["youtube_videos"] = request.yt_list
-
+        
+        logger.info("-------------------------------------------------")
+        logger.info(f"Payload to ExtractorService: {payload_to_extractor}")
+        logger.info("-------------------------------------------------")
         logger.info(f"Calling ExtractorService with {len(s3_uris)} S3 URIs -->{payload_to_extractor}")
+        
         extractor_response = requests.post(
             f"{EXTRACTOR_SERVICE_URL}/process",
             json=payload_to_extractor
@@ -188,21 +255,33 @@ def store_documents(request: StoreRequest):
 
         # Transforming processed data into DBService format
         db_request_payload = {
-            "documents": [],
+            "session_id": request.session_id,
             "tag": request.tag,
-            "session_id": request.session_id
+            "documents": []
         }
 
-        for uri, chunks in processed_data.items():
+        # Process document chunks from ExtractorService response
+        for doc_chunk in processed_data.get("document_chunks", []):
             doc = {
-                "uri": uri,
-                "video_id": "",  # you can enhance this if needed
-                "chunks": [{"chunk_id": idx, "text": text} for idx, text in enumerate(chunks)]
+                "uri": doc_chunk["s3_uri"],
+                "chunks": [{"chunk_id": idx, "text": text} for idx, text in enumerate(doc_chunk["chunks"])]
             }
             db_request_payload["documents"].append(doc)
+
+        # Process YouTube chunks if any (though the example shows empty youtube_chunks)
+        for yt_chunk in processed_data.get("youtube_chunks", []):
+            doc = {
+                "video_id": yt_chunk["video_id"],  # Assuming this field exists in the response
+                "chunks": [{"chunk_id": idx, "text": text} for idx, text in enumerate(yt_chunk["chunks"])]
+            }
+            db_request_payload["documents"].append(doc)
+
         logger.info(f"Transformed data for DBService: {db_request_payload}")
         logger.info(f"Sending {len(db_request_payload['documents'])} documents to DBService")
-
+        logger.info("-------------------------------------------------")
+        logger.info(f"DB request payload: {db_request_payload}")
+        logger.info("-------------------------------------------------")
+        
         db_response = requests.post(
             f"{DB_SERVICE_URL}/store",
             json=db_request_payload
@@ -214,7 +293,6 @@ def store_documents(request: StoreRequest):
     except Exception as e:
         logger.exception("Failed during /store process")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 # Health Check
 @app.get("/health")

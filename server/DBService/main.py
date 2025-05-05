@@ -172,6 +172,6 @@ def root():
 # -------------- Run Server ----------------
 
 if __name__ == "__main__":
-    logger.info("Starting DB Service...")
+    logger.info("Starting DB Service....")
     uvicorn.run("dv_service:app", port=8003, reload=True)
     logger.info("DB Service started successfully.")

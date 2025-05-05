@@ -160,7 +160,7 @@ export const Sidebar = ({ isResponsive, ...props }: SideBarProps) => {
                     _hover={{
                         backgroundColor: "whiteAlpha.100"
                     }}
-                >New chat</Button>
+                >New Session</Button>
                 <Stack
                     height="full"
                     overflowY="auto"
@@ -262,7 +262,7 @@ export const Sidebar = ({ isResponsive, ...props }: SideBarProps) => {
                             backgroundColor: "blackAlpha.300"
                         }}
                     >Log Out</Button>
-                    <Button
+                    {/* <Button
                         leftIcon={<FiKey />}
                         padding={2}
                         justifyContent="flex-start"
@@ -271,7 +271,7 @@ export const Sidebar = ({ isResponsive, ...props }: SideBarProps) => {
                         _hover={{
                             backgroundColor: "blackAlpha.300"
                         }}
-                    >Change API Key</Button>
+                    >Change API Key</Button> */}
                 </Stack>
             </Stack>
             <AccountModal title="Your account">
@@ -307,7 +307,7 @@ export const Sidebar = ({ isResponsive, ...props }: SideBarProps) => {
                         <Stack direction="row">
                             <Heading
                                 size="md"
-                            >CleoClog</Heading>
+                            >CleoCog</Heading>
                             <Heading
                                 color="purple.400"
                                 size="md"

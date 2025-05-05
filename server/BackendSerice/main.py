@@ -3,12 +3,16 @@ import logging
 import requests
 import uvicorn
 import json
+import boto3
+import uuid
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 from typing import List
 from typing import Optional
-import boto3
+from fastapi import UploadFile, File
+from botocore.exceptions import ClientError
+
 # Setup logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -29,6 +33,9 @@ class StoreRequest(BaseModel):
     session_id: str
     tag: str
     yt_list: Optional[List[str]] = None
+class UploadRequest(BaseModel):
+    session_id: str
+    filenames: List[str]
 
 # ----------------- Helper Functions -----------------
 
@@ -73,7 +80,6 @@ def calculate_k_from_chunks(
     k = min(k, total_chunks)  # never more than available chunks
     return k
 
-
 def get_k(session_id: str, tag: str) -> int:
     try:
         # Make the GET request to fetch the value of k
@@ -96,7 +102,6 @@ def get_k(session_id: str, tag: str) -> int:
         logger.error(f"Error in get_k: {e}")
         return 5
 
-    
 # ----------------- API Endpoints -----------------
 @app.get("/")
 async def root():
@@ -202,6 +207,21 @@ async def combined_query(request: Request):
         logger.exception(f"Error in /query: {e}")
         raise HTTPException(status_code=500, detail="Failed to process the combined query")
 
+@app.get("/createSession")
+async def create_session():
+    try:
+        session_id = str(uuid.uuid4())
+        bucket = os.getenv("S3_BUCKET_NAME")
+        folder_key = f"{session_id}/"
+
+        # Create folder by uploading an empty object
+        s3_client.put_object(Bucket=bucket, Key=folder_key)
+        logger.info(f"Created S3 folder for session: {session_id}")
+
+        return {"session_id": session_id}
+    except Exception as e:
+        logger.error(f"Error creating session: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create session")
 
 @app.get("/promptQuery")
 async def prompt_query(request: Request):
@@ -293,6 +313,26 @@ def store_documents(request: StoreRequest):
     except Exception as e:
         logger.exception("Failed during /store process")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/uploadDocs")
+def get_presigned_urls(req: UploadRequest):
+    try:
+        bucket = os.getenv("S3_BUCKET_NAME")
+        urls = {}
+
+        for name in req.filenames:
+            key = f"{req.session_id}/{name}"
+            url = s3_client.generate_presigned_url(
+                ClientMethod='put_object',
+                Params={'Bucket': bucket, 'Key': key},
+                ExpiresIn=3600  # 1 hour
+            )
+            urls[name] = url
+
+        return {"presigned_urls": urls}
+    except ClientError as e:
+        logger.error(f"Error generating presigned URLs: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate upload URLs")
 
 # Health Check
 @app.get("/health")

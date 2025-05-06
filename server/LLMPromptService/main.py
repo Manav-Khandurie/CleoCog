@@ -93,7 +93,7 @@ def get_llm():
 
 @app.post("/generate", response_model=LLMResponse)
 async def generate_text(request: LLMRequest):
-    logger.info(f"Received generation request with prompt: {request.prompt[:100]}...")  # Log only first 100 chars
+    logger.info(f"Received generation request with prompt: {request.prompt[:1000]}...")  # Log only first 100 chars
 
     try:
         llm = get_llm()

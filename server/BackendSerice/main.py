@@ -13,7 +13,7 @@ from typing import Optional
 from fastapi import UploadFile, File
 from botocore.exceptions import ClientError
 from fastapi import APIRouter, HTTPException
-from botocore.exceptions import ClientError
+from botocore.exceptions import ClientError 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)

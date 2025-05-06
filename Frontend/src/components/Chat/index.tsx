@@ -8,7 +8,8 @@ import { useForm } from "react-hook-form";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { OpenAIApi, Configuration } from "openai";
 import { useMutation } from "react-query";
-
+import { v4 } from "uuid";
+import axios from "axios";
 //Components
 import { Input } from "@/components/Input";
 import { FiSend } from "react-icons/fi";
@@ -78,66 +79,61 @@ export const Chat = ({ ...props }: ChatProps) => {
 
     const handleAsk = async ({ input: prompt }: ChatSchema) => {
         updateScroll();
-        const sendRequest = (selectedId: string) => {
+    
+        const sendRequest = async (selectedId: string, sessionId: string) => {
             setValue("input", "");
-
+    
             addMessage(selectedId, {
                 emitter: "user",
                 message: prompt
             });
-
-            mutate(prompt, {
-                onSuccess({ status, data }, variable) {
-                    if (status === 200) {
-                        const message = String(data.choices[0].message?.content);
-                        addMessage(selectedId, {
-                            emitter: "gpt",
-                            message
-                        });
-
-                        if (selectedRole == "New chat" || selectedRole == undefined) {
-                            editChat(selectedId, { role: variable });
-                        };
+    
+            try {
+                const VITE_BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+                const tag = "story_chapters";
+    
+                const response = await axios.get(`${VITE_BACKEND_URL}/query`, {
+                    params: {
+                        query: prompt,
+                        tag : "test_frontend_user",
+                        session_id: sessionId.session_id
                     }
-                    updateScroll();
-                },
-                onError(error) {
-                    type Error = {
-                        response: {
-                            data: {
-                                error: {
-                                    code: "invalid_api_key" | string,
-                                    message: string
-                                };
-                            },
-                        },
-                    };
-
-                    const { response } = error as Error,
-                        message = response.data.error.message;
-                    addMessage(selectedId, {
-                        emitter: "error",
-                        message
-                    });
-                    updateScroll();
+                });
+                
+                const message = response.data?.message || "No response message";
+    
+                addMessage(selectedId, {
+                    emitter: "gpt",
+                    message
+                });
+    
+                if (selectedRole === "New chat" || selectedRole === undefined) {
+                    editChat(selectedId, { role: prompt });
                 }
-            });
+            } catch (error: any) {
+                const message = error?.response?.data?.detail || "Something went wrong!";
+                addMessage(selectedId, {
+                    emitter: "error",
+                    message
+                });
+            }
+    
+            updateScroll();
         };
-
-        if (selectedId) {
+    
+        if (selectedId && sessionId) {
             if (prompt && !isLoading) {
-                sendRequest(selectedId);
-            };
+                await sendRequest(selectedId, sessionId);
+            }
         } else {
-            addChat((newId) => {
-                const sessionId = newId; // or generate your own UUID if needed
-                sendRequest(newId);
-              
-                // Update chat with sessionId metadata
-                editChat(newId, { sessionId });
-              });
-        };
+            addChat(async (newId) => {
+                const newSessionId = v4(); // or use from your backend if not already in `addChat`
+                await editChat(newId, { sessionId: newSessionId });
+                await sendRequest(newId, newSessionId);
+            });
+        }
     };
+    
 
     return (
         <Stack

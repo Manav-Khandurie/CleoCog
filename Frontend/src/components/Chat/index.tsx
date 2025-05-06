@@ -12,6 +12,7 @@ import { useMutation } from "react-query";
 //Components
 import { Input } from "@/components/Input";
 import { FiSend } from "react-icons/fi";
+import {  FiUpload } from "react-icons/fi";
 import {
     Avatar,
     IconButton,
@@ -22,6 +23,9 @@ import {
 import ReactMarkdown from 'react-markdown'
 import { Instructions } from "../Layout/Instructions";
 import { useAPI } from "@/store/api";
+import { useDisclosure } from "@chakra-ui/react";
+import { UploadDocsModal } from "@/components/Modal/useDocsModal";
+import { useUpload } from "@/hooks/useUpload"; // assuming you already have this
 
 export interface ChatProps { };
 
@@ -39,7 +43,9 @@ export const Chat = ({ ...props }: ChatProps) => {
     } = useChat();
     const selectedId = selectedChat?.id,
         selectedRole = selectedChat?.role;
-
+    const { isOpen, onOpen, onClose } = useDisclosure();
+    const { sessionId } = selectedChat || {}; // Use session ID from selectedChat
+        
     const hasSelectedChat = selectedChat && selectedChat?.content.length > 0;
 
     const {
@@ -123,7 +129,13 @@ export const Chat = ({ ...props }: ChatProps) => {
                 sendRequest(selectedId);
             };
         } else {
-            addChat(sendRequest);
+            addChat((newId) => {
+                const sessionId = newId; // or generate your own UUID if needed
+                sendRequest(newId);
+              
+                // Update chat with sessionId metadata
+                editChat(newId, { sessionId });
+              });
         };
     };
 
@@ -153,7 +165,7 @@ export const Chat = ({ ...props }: ChatProps) => {
                                     case "gpt":
                                         return gptAvatar;
                                     case "error":
-                                        return warning;
+                                            return warning;
                                     default:
                                         return user;
                                 }
@@ -216,13 +228,21 @@ export const Chat = ({ ...props }: ChatProps) => {
                         autoFocus={true}
                         variant="filled"
                         inputRightAddon={(
-                            <IconButton
+                            <>
+                              <IconButton
+                                aria-label="upload_button"
+                                icon={<FiUpload />} // you'll need to import this
+                                backgroundColor="transparent"
+                                onClick={onOpen}
+                              />
+                              <IconButton
                                 aria-label="send_button"
-                                icon={(!isLoading) ? (<FiSend />) : (<Spinner />)}
+                                icon={!isLoading ? <FiSend /> : <Spinner />}
                                 backgroundColor="transparent"
                                 onClick={handleSubmit(handleAsk)}
-                            />
-                        )}
+                              />
+                            </>
+                          )}
                         {...register('input')}
                         onSubmit={console.log}
                         onKeyDown={(e) => {
@@ -236,6 +256,13 @@ export const Chat = ({ ...props }: ChatProps) => {
                         fontSize="sm"
                         opacity={.5}
                     >Free Research Preview. Our goal is to make AI systems more natural and safe to interact with. Your feedback will help us improve.</Text>
+                    <UploadDocsModal
+                        isOpen={isOpen}
+                        onClose={onClose}
+                        sessionId={sessionId}
+                        onUploadComplete={() => {
+                            onClose();
+                        }}/>
                 </Stack>
             </Stack>
         </Stack>

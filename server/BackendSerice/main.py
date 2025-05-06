@@ -12,7 +12,8 @@ from typing import List
 from typing import Optional
 from fastapi import UploadFile, File
 from botocore.exceptions import ClientError
-
+from fastapi import APIRouter, HTTPException
+from botocore.exceptions import ClientError
 # Setup logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -29,6 +30,14 @@ EXTRACTOR_SERVICE_URL = os.getenv("EXTRACTOR_SERVICE_URL", "http://localhost:800
 # FastAPI app
 app = FastAPI()
 
+from fastapi.middleware.cors import CORSMiddleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods (GET, POST, PUT, DELETE, etc.)
+    allow_headers=["*"],  # Allows all headers
+)
 class StoreRequest(BaseModel):
     session_id: str
     tag: str
@@ -324,16 +333,22 @@ def get_presigned_urls(req: UploadRequest):
             key = f"{req.session_id}/{name}"
             url = s3_client.generate_presigned_url(
                 ClientMethod='put_object',
-                Params={'Bucket': bucket, 'Key': key},
-                ExpiresIn=3600  # 1 hour
+                Params={
+                    'Bucket': bucket,
+                    'Key': key,
+                    'ContentType': 'application/pdf'  # match the upload
+                },
+                ExpiresIn=3600,
+                HttpMethod='PUT'  # very important!
             )
             urls[name] = url
 
         return {"presigned_urls": urls}
+
     except ClientError as e:
         logger.error(f"Error generating presigned URLs: {e}")
         raise HTTPException(status_code=500, detail="Failed to generate upload URLs")
-
+    
 # Health Check
 @app.get("/health")
 async def health_check():

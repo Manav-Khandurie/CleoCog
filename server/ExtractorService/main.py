@@ -7,6 +7,7 @@ from PyPDF2 import PdfReader
 import nltk
 import bisect
 
+
 # Ensure punkt tokenizer is available
 nltk.download('punkt')
 from nltk.tokenize import sent_tokenize
@@ -21,7 +22,14 @@ logger = logging.getLogger(__name__)
 # ========== FastAPI App ==========
 app = FastAPI()
 s3 = boto3.client('s3')
-
+from fastapi.middleware.cors import CORSMiddleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods (GET, POST, PUT, DELETE, etc.)
+    allow_headers=["*"],  # Allows all headers
+)
 # ========== Helpers ==========
 
 def chunk_text(text: str, max_tokens=300, overlap=50) -> List[str]:

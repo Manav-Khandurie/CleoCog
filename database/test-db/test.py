@@ -6,7 +6,7 @@ def test_pgvector_connection():
         # Using your provided host, username/password = postgres, db = postgres
         connection_uri = (
             "postgresql://postgres:postgres@"
-            "ip172-18-0-23-cvttmh0l2o9000f0anng-5432.direct.labs.play-with-docker.com/"
+            ""
             "postgres"
         )
 

@@ -10,6 +10,8 @@ from langchain_openai import ChatOpenAI  # Reusing OpenAI-compatible client
 from langchain_community.chat_models import ChatOpenAI, ChatAnthropic
 from langchain_google_genai import ChatGoogleGenerativeAI
 
+
+
 # Load environment variables in local development
 if "AWS_LAMBDA_FUNCTION_NAME" not in os.environ:
     try:
@@ -41,7 +43,14 @@ class LLMResponse(BaseModel):
 
 app = FastAPI()
 handler = Mangum(app)
-
+from fastapi.middleware.cors import CORSMiddleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods (GET, POST, PUT, DELETE, etc.)
+    allow_headers=["*"],  # Allows all headers
+)
 def get_llm():
     llm_provider = get_env_var("LLM_PROVIDER", "openai").lower()
     logger.info(f"Initializing LLM provider: {llm_provider}")
@@ -84,7 +93,7 @@ def get_llm():
 
 @app.post("/generate", response_model=LLMResponse)
 async def generate_text(request: LLMRequest):
-    logger.info(f"Received generation request with prompt: {request.prompt[:100]}...")  # Log only first 100 chars
+    logger.info(f"Received generation request with prompt: {request.prompt[:1000]}...")  # Log only first 100 chars
 
     try:
         llm = get_llm()

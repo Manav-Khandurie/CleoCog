@@ -28,6 +28,16 @@ DB_NAME = os.getenv("POSTGRES_DB", "postgres")
 
 DB_DSN = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
+
+from fastapi.middleware.cors import CORSMiddleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods (GET, POST, PUT, DELETE, etc.)
+    allow_headers=["*"],  # Allows all headers
+)
+
 # ---------------- Models ----------------
 
 class Chunk(BaseModel):
@@ -172,6 +182,6 @@ def root():
 # -------------- Run Server ----------------
 
 if __name__ == "__main__":
-    logger.info("Starting DB Service...")
+    logger.info("Starting DB Service....")
     uvicorn.run("dv_service:app", port=8003, reload=True)
     logger.info("DB Service started successfully.")

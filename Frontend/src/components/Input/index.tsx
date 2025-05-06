@@ -7,7 +7,8 @@ import {
     InputProps as DefaultInputProps,
     InputGroup,
     InputRightElement,
-    InputLeftElement
+    InputLeftElement,
+    Button,
 } from "@chakra-ui/react";
 import { forwardRef, ReactNode } from "react";
 

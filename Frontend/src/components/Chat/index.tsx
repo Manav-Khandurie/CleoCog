@@ -96,11 +96,11 @@ export const Chat = ({ ...props }: ChatProps) => {
                     params: {
                         query: prompt,
                         tag : "test_frontend_user",
-                        session_id: sessionId.session_id
+                        session_id: '186aed05-6746-4492-9b1d-c86fb18254f7'
                     }
                 });
                 
-                const message = response.data?.message || "No response message";
+                const message = response.data?.generated_text || "No response message";
     
                 addMessage(selectedId, {
                     emitter: "gpt",

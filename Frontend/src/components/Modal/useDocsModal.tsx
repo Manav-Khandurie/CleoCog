@@ -21,9 +21,11 @@ import { useChat } from '@/store/Chat'; // Ensure this path is correct
 interface Props {
   isOpen: boolean;
   onClose: () => void;
+  sessionId: string;
 }
 
-export const UploadDocsModal = ({ isOpen, onClose }: Props) => {
+
+export const UploadDocsModal = ({ isOpen, onClose, sessionId }: Props) => {
   const [files, setFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false); // ✅ Correct placement inside component
   const toast = useToast();
@@ -32,7 +34,7 @@ export const UploadDocsModal = ({ isOpen, onClose }: Props) => {
   const handleUpload = async () => {
     setLoading(true);
     try {
-      await uploadFiles(files);
+      await uploadFiles(files, sessionId); // ✅ Pass sessionId from props
       toast({ title: 'Upload successful', status: 'success' });
 
       // Add a chat message after success

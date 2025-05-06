@@ -1,20 +1,15 @@
-// File: src/hooks/useUpload.ts
-import { useState } from 'react';
-import { createSession, getPresignedUrls, uploadFileToS3, registerDocuments } from '@/api/upload';
+// src/hooks/useUpload.ts
+import { getPresignedUrls, uploadFileToS3, registerDocuments } from '@/api/upload';
 
 export const useUpload = () => {
-  const [sessionId, setSessionId] = useState<string | null>(null);
-
-  const startSession = async () => {
-    const session = await createSession();
-    setSessionId(session);
-    return session;
-  };
-
-  const uploadFiles = async (files: File[], tag: string = '', yt_list: string[] = []) => {
-    const currentSessionId = sessionId || (await startSession());
+  const uploadFiles = async (
+    files: File[],
+    sessionId: string,
+    tag: string = '',
+    yt_list: string[] = []
+  ) => {
     const filenames = files.map(file => file.name);
-    const { presigned_urls } = await getPresignedUrls(currentSessionId, filenames);
+    const { presigned_urls } = await getPresignedUrls(sessionId, filenames);
   
     await Promise.all(
       files.map(file => {
@@ -23,13 +18,9 @@ export const useUpload = () => {
       })
     );
   
-    await registerDocuments(currentSessionId, tag, yt_list);
-    return currentSessionId;
+    await registerDocuments(sessionId, tag, yt_list);
+    return sessionId;
   };
-  
-  return {
-    sessionId,
-    startSession,
-    uploadFiles
-  };
+
+  return { uploadFiles };
 };

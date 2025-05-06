@@ -27,6 +27,7 @@ import { useAPI } from "@/store/api";
 import { useDisclosure } from "@chakra-ui/react";
 import { UploadDocsModal } from "@/components/Modal/useDocsModal";
 import { useUpload } from "@/hooks/useUpload"; // assuming you already have this
+import { createSession } from "@/api/upload";
 
 export interface ChatProps { };
 
@@ -96,7 +97,7 @@ export const Chat = ({ ...props }: ChatProps) => {
                     params: {
                         query: prompt,
                         tag : "test_frontend_user",
-                        session_id: '186aed05-6746-4492-9b1d-c86fb18254f7'
+                        session_id: sessionId.session_id
                     }
                 });
                 
@@ -127,7 +128,7 @@ export const Chat = ({ ...props }: ChatProps) => {
             }
         } else {
             addChat(async (newId) => {
-                const newSessionId = v4(); // or use from your backend if not already in `addChat`
+                const newSessionId = await createSession(); // ✅ consistent session from backend
                 await editChat(newId, { sessionId: newSessionId });
                 await sendRequest(newId, newSessionId);
             });

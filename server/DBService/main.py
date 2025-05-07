@@ -18,7 +18,7 @@ load_dotenv()
 
 # Config from env
 HF_API_URL = os.getenv("HF_API_URL", "https://api-inference.huggingface.co/models/sentence-transformers/all-MiniLM-L6-v2")
-HF_API_TOKEN = os.getenv("HF_API_TOKEN")
+HF_API_TOKEN = os.getenv("HF_API_TOKEN","")
 
 DB_USER = os.getenv("POSTGRES_USER", "postgres")
 DB_PASSWORD = os.getenv("POSTGRES_PASSWORD", "your-default-password")

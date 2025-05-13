@@ -1,10 +1,11 @@
 from fastapi import APIRouter
+
 from app.schemas.embed import TextInput
 from app.services.embedder import generate_embedding
 from app.utils.logger import logger
-from fastapi import APIRouter
 
 router = APIRouter()
+
 
 @router.post("/embed")
 def embed_text(data: TextInput):
